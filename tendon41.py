@@ -91,15 +91,6 @@ def true_tendon_length(x, z):
 
 
 def theoretical_elongation_mm(P_kN, x_m, A_mm2, E_MPa):
-    """
-    Δ = ∫ P(x) dx / (A E)
-    Units:
-      P: kN -> N
-      x: m
-      A: mm^2 -> m^2
-      E: MPa -> Pa
-    Output: Δ in mm
-    """
     P_kN = np.asarray(P_kN, dtype=float)
     x_m = np.asarray(x_m, dtype=float)
 
@@ -108,7 +99,14 @@ def theoretical_elongation_mm(P_kN, x_m, A_mm2, E_MPa):
     if A_m2 <= 0 or E_Pa <= 0:
         return np.nan
 
-    area_under = np.trapz(P_kN * 1000.0, x_m)  # (N)*m = N·m
+    y = P_kN * 1000.0  # N
+
+    # NumPy 2.x compatible + backward compatible
+    if hasattr(np, "trapezoid"):
+        area_under = np.trapezoid(y, x_m)  # N*m
+    else:
+        area_under = np.trapz(y, x_m)      # N*m
+
     delta_m = area_under / (A_m2 * E_Pa)
     return float(delta_m * 1000.0)  # mm
 
@@ -912,3 +910,4 @@ st.write(
     "- Double-end curve is envelope max(P_left, P_right) and clamped to never exceed P0.\n"
     "- Elongation: Δ = ∫P(x)dx / (A·E) using trapezoidal integration.\n"
 )
+
