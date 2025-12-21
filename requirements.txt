@@ -1,5 +1,5 @@
 streamlit>=1.36
-numpy>=1.26
+numpy<2.0
 pandas>=2.0
 matplotlib>=3.8
 reportlab>=4.0
