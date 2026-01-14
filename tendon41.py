@@ -28,9 +28,48 @@ from reportlab.lib.utils import ImageReader
 # Streamlit page
 # -----------------------------
 st.set_page_config(
-    page_title="2D PT Tendon (Final) + Friction + Elongation + Report",
-    layout="wide"
+    page_title="Post-Tensioning Tendon Analysis System",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Custom CSS for professional styling
+st.markdown("""
+    <style>
+    .main {
+        padding: 0rem 1rem;
+    }
+    .stMetric {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #1f77b4;
+    }
+    .stMetric:hover {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    h1 {
+        color: #1f77b4;
+        font-weight: 600;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    h2 {
+        color: #2c3e50;
+        font-weight: 500;
+        margin-top: 1.5rem;
+    }
+    h3 {
+        color: #34495e;
+        font-weight: 500;
+    }
+    div[data-testid="stDataFrameResizable"] {
+        border: 1px solid #e0e0e0;
+        border-radius: 0.5rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # -----------------------------
 # Math / geometry utilities
@@ -553,52 +592,168 @@ def build_pdf_report(payload, logo_bytes=None):
 # -----------------------------
 # App UI
 # -----------------------------
-st.title("2D PT Tendon Geometry + Friction + Elongation + Professional PDF Report")
+st.title("🏗️ Post-Tensioning Tendon Analysis System")
+st.markdown("### Professional 2D PT Tendon Analysis with Friction & Elongation Calculation")
 
-st.caption(
-    "All vertical inputs are heights from soffit (deck bottom): z=0 at soffit, z=t at top. "
-    "Interior supports enforce horizontal tangent (slope=0). "
-    "Optional straight end segments are enforced with tangent continuity."
+st.info(
+    "📐 **Coordinate System:** All vertical inputs represent heights from deck soffit (bottom):  \n"
+    "• z = 0 at soffit reference  \n"
+    "• z = t at deck top surface  \n\n"
+    "⚙️ **Boundary Conditions:** Interior supports enforce horizontal tangent (slope = 0)  \n"
+    "🔧 **End Zones:** Optional straight end segments with tangent continuity matching"
 )
 
+
 with st.sidebar:
-    st.header("Bridge / Tendon Geometry")
-    n_spans = st.number_input("Number of spans", min_value=1, max_value=30, value=3, step=1)
-    deck_t = st.number_input("Deck thickness t (m)", min_value=0.10, max_value=10.00, value=2.00, step=0.01)
+    st.header("📊 Geometric Configuration")
+    
+    st.subheader("Bridge Parameters")
+    n_spans = st.number_input(
+        "Number of Spans", 
+        min_value=1, 
+        max_value=30, 
+        value=3, 
+        step=1,
+        help="Define the number of continuous spans"
+    )
+    deck_t = st.number_input(
+        "Deck Thickness t (m)", 
+        min_value=0.10, 
+        max_value=10.00, 
+        value=2.00, 
+        step=0.01,
+        help="Total structural depth from soffit to top surface"
+    )
 
-    st.subheader("Sampling")
-    step = st.number_input("Station step (m)", min_value=0.02, max_value=2.00, value=0.25, step=0.01)
+    st.subheader("Analysis Discretization")
+    step = st.number_input(
+        "Station Interval (m)", 
+        min_value=0.02, 
+        max_value=2.00, 
+        value=0.25, 
+        step=0.01,
+        help="Spacing between calculation points along tendon"
+    )
 
-    st.subheader("Continuity controls")
-    min_gap = st.number_input("Minimum gap between control points (m)", min_value=0.05, max_value=5.0, value=0.25, step=0.05)
+    st.subheader("Geometric Controls")
+    min_gap = st.number_input(
+        "Minimum Control Point Spacing (m)", 
+        min_value=0.05, 
+        max_value=5.0, 
+        value=0.25, 
+        step=0.05,
+        help="Minimum allowable distance between adjacent control points"
+    )
 
-    st.subheader("Shape constraints")
-    zero_slope_low = st.checkbox("Force horizontal tangent at LOW points", value=True)
-    end_linear = st.checkbox("Make ends linear (with tangent match)", value=True)
-    Le = st.number_input("End linear length Le (m)", min_value=0.0, max_value=50.0, value=1.5, step=0.1)
+    st.subheader("Profile Constraints")
+    zero_slope_low = st.checkbox(
+        "Enforce Horizontal Tangent at Low Points", 
+        value=True,
+        help="Force zero slope at span low points for smoother profile"
+    )
+    end_linear = st.checkbox(
+        "Apply Linear End Zones", 
+        value=True,
+        help="Create straight tendon segments at member ends with tangent matching"
+    )
+    Le = st.number_input(
+        "End Zone Length Le (m)", 
+        min_value=0.0, 
+        max_value=50.0, 
+        value=1.5, 
+        step=0.1,
+        help="Length of linear end zone from each support"
+    )
 
-    st.header("Friction Inputs")
-    P0 = st.number_input("Jacking force P0 (kN)", min_value=1.0, max_value=1e6, value=2000.0, step=50.0)
-    mu = st.number_input("Curvature friction coefficient μ (-)", min_value=0.0, max_value=1.0, value=0.25, step=0.01)
-    k = st.number_input("Wobble coefficient k (1/m)", min_value=0.0, max_value=1.0, value=0.0033, step=0.0001, format="%.6f")
+    st.divider()
+    
+    st.header("⚡ Prestressing Parameters")
+    
+    st.subheader("Initial Force")
+    P0 = st.number_input(
+        "Jacking Force P₀ (kN)", 
+        min_value=1.0, 
+        max_value=1e6, 
+        value=2000.0, 
+        step=50.0,
+        help="Prestressing force applied at jacking end"
+    )
+    
+    st.subheader("Friction Coefficients")
+    mu = st.number_input(
+        "Curvature Friction μ (-)", 
+        min_value=0.0, 
+        max_value=1.0, 
+        value=0.25, 
+        step=0.01,
+        help="Friction coefficient for angular displacement (typical: 0.15-0.30)"
+    )
+    k = st.number_input(
+        "Wobble Coefficient k (1/m)", 
+        min_value=0.0, 
+        max_value=1.0, 
+        value=0.0033, 
+        step=0.0001, 
+        format="%.6f",
+        help="Friction coefficient for length-dependent wobble (typical: 0.0010-0.0050)"
+    )
 
-    st.header("Jacking")
-    jacking_mode = st.selectbox("Jacking mode", ["Single-end (Left)", "Single-end (Right)", "Double-end"])
+    st.subheader("Stressing Configuration")
+    jacking_mode = st.selectbox(
+        "Jacking Method", 
+        ["Single-end (Left)", "Single-end (Right)", "Double-end"],
+        help="Select the stressing sequence and configuration"
+    )
 
-    st.header("Elongation inputs")
-    A_mm2 = st.number_input("Tendon area A (mm²)", min_value=1.0, max_value=1e6, value=1400.0, step=10.0)
-    E_MPa = st.number_input("Tendon E (MPa)", min_value=10000.0, max_value=300000.0, value=200000.0, step=1000.0)
+    st.divider()
+    
+    st.header("🔬 Material Properties")
+    
+    st.subheader("Tendon Characteristics")
+    A_mm2 = st.number_input(
+        "Cross-sectional Area A (mm²)", 
+        min_value=1.0, 
+        max_value=1e6, 
+        value=1400.0, 
+        step=10.0,
+        help="Total area of prestressing steel"
+    )
+    E_MPa = st.number_input(
+        "Elastic Modulus E (MPa)", 
+        min_value=10000.0, 
+        max_value=300000.0, 
+        value=200000.0, 
+        step=1000.0,
+        help="Modulus of elasticity of prestressing steel (typical: 195,000-205,000 MPa)"
+    )
 
-    st.header("Report")
-    project_name = st.text_input("Project name (optional)", value="")
-    author_name = st.text_input("Author (optional)", value="")
-    logo_file = st.file_uploader("Upload logo (PNG/JPG) for report header", type=["png", "jpg", "jpeg"])
+    st.divider()
+    
+    st.header("📄 Report Generation")
+    
+    project_name = st.text_input(
+        "Project Name (optional)", 
+        value="",
+        help="Enter project identification name for the report"
+    )
+    author_name = st.text_input(
+        "Engineer Name (optional)", 
+        value="",
+        help="Enter the responsible engineer's name"
+    )
+    logo_file = st.file_uploader(
+        "Upload Logo for Report Header", 
+        type=["png", "jpg", "jpeg"],
+        help="Upload a company/project logo (PNG or JPG format)"
+    )
+
 
 
 # -----------------------------
 # Default tables
 # -----------------------------
-st.markdown("## 1) Spans + LOW points")
+st.markdown("## 📏 Step 1: Span Configuration & Low Point Definition")
+st.caption("Define span lengths and position of lowest tendon points within each span")
 
 default_L = [30.0] * int(n_spans)
 
@@ -624,14 +779,18 @@ span_df = pd.DataFrame({
 })
 span_df = st.data_editor(span_df, num_rows="fixed", use_container_width=True, key="span_df_final_app")
 
-st.markdown("## 2) Support heights (from soffit)")
+st.markdown("## 🔺 Step 2: Support Elevation Definition")
+st.caption("Specify tendon elevation at each support location (measured from soffit)")
+
 support_df = pd.DataFrame({
     "support_id": list(range(1, int(n_spans) + 2)),
     "support_h_from_soffit (m)": [1.00] * (int(n_spans) + 1),
 })
 support_df = st.data_editor(support_df, num_rows="fixed", use_container_width=True, key="support_df_final_app")
 
-st.markdown("## 3) Inflection distances around interior supports (control zone)")
+st.markdown("## 📍 Step 3: Interior Pier Inflection Point Configuration")
+st.caption("Define distances from pier centerline to inflection points on either side for continuous spans")
+
 pier_rows = []
 for sidx in range(int(n_spans) + 1):
     if sidx == 0 or sidx == int(n_spans):
@@ -721,193 +880,331 @@ elong_selected_mm = theoretical_elongation_mm(P_selected, x, A_mm2, E_MPa)
 # -----------------------------
 # Plots
 # -----------------------------
+st.markdown("---")
+st.markdown("## 📊 Analysis Results Visualization")
+
 col1, col2 = st.columns(2, gap="large")
 
 with col1:
-    st.markdown("### Tendon geometry (z vs x)")
-    fig1 = plt.figure()
-    ax1 = fig1.add_subplot(111)
-
-    ax1.plot([0, Ltot], [0, 0], linewidth=1, label="Soffit (z=0)")
-    ax1.plot([0, Ltot], [deck_t, deck_t], linewidth=1, label=f"Top (z=t={deck_t:.2f})")
-    ax1.plot(x, z, linewidth=2, label="Tendon (C¹ Hermite)")
-
+    st.markdown("### 📐 Tendon Geometric Profile")
+    fig1, ax1 = plt.subplots(figsize=(10, 6))
+    
+    ax1.plot([0, Ltot], [0, 0], 'k-', linewidth=1.5, label="Soffit Reference (z=0)", alpha=0.7)
+    ax1.plot([0, Ltot], [deck_t, deck_t], 'k--', linewidth=1.5, label=f"Deck Top (z={deck_t:.2f}m)", alpha=0.7)
+    ax1.plot(x, z, 'b-', linewidth=2.5, label="PT Tendon Profile (C¹ Hermite)")
+    
     for xx in supports_x:
-        ax1.axvline(xx, linewidth=0.5)
-
+        ax1.axvline(xx, color='gray', linewidth=0.8, linestyle=':', alpha=0.6)
+    
     if end_info is not None:
-        ax1.axvline(end_info["Le"], linestyle="--", linewidth=1)
-        ax1.axvline(Ltot - end_info["Le"], linestyle="--", linewidth=1)
-
-    ax1.scatter(ctrl["x"], ctrl["z"], s=30)
-    ax1.set_xlabel("x (m)")
-    ax1.set_ylabel("z (m) (height from soffit)")
-    ax1.grid(True)
-    ax1.legend(loc="best")
+        ax1.axvline(end_info["Le"], linestyle='--', color='red', linewidth=1.2, alpha=0.7, label=f"End Zone Boundary (Le={end_info['Le']:.2f}m)")
+        ax1.axvline(Ltot - end_info["Le"], linestyle='--', color='red', linewidth=1.2, alpha=0.7)
+    
+    ax1.scatter(ctrl["x"], ctrl["z"], s=50, c='red', zorder=5, edgecolors='black', linewidths=0.5, label="Control Points")
+    
+    ax1.set_xlabel("Longitudinal Position x (m)", fontsize=11, fontweight='bold')
+    ax1.set_ylabel("Elevation z (m from soffit)", fontsize=11, fontweight='bold')
+    ax1.set_title("Tendon Geometric Profile", fontsize=13, fontweight='bold', pad=15)
+    ax1.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+    ax1.legend(loc="best", framealpha=0.9, fontsize=9)
+    ax1.set_xlim(-1, Ltot + 1)
+    
     st.pyplot(fig1, clear_figure=False)
 
 with col2:
-    st.markdown("### Tendon force after friction (P vs x)")
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot(111)
-
+    st.markdown("### 📊 Prestressing Force Distribution")
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    
     lw_base = 2
-    lw_sel = 4
+    lw_sel = 3.5
     lwL = lw_sel if jacking_mode == "Single-end (Left)" else lw_base
     lwR = lw_sel if jacking_mode == "Single-end (Right)" else lw_base
     lwD = lw_sel if jacking_mode == "Double-end" else lw_base
-
-    ax2.plot(x, P_left, linewidth=lwL, label="Single-end (Left)")
-    ax2.plot(x, P_right, linewidth=lwR, linestyle="--", label="Single-end (Right)")
-    ax2.plot(x, P_double, linewidth=lwD, label="Double-end (envelope max)")
-
-    ax2.scatter([x_minP], [P_min], s=40)
-    ax2.set_xlabel("x (m)")
-    ax2.set_ylabel("P (kN)")
-    ax2.grid(True)
-    ax2.legend(loc="best")
+    
+    ax2.plot(x, P_left, linewidth=lwL, label="Single-End Left", color='#1f77b4', alpha=0.8)
+    ax2.plot(x, P_right, linewidth=lwR, linestyle="--", label="Single-End Right", color='#ff7f0e', alpha=0.8)
+    ax2.plot(x, P_double, linewidth=lwD, label="Double-End Envelope", color='#2ca02c', alpha=0.8)
+    
+    ax2.scatter([x_minP], [P_min], s=120, c='red', zorder=5, edgecolors='black', linewidths=1.5, 
+               label=f"Min Force = {P_min:.1f} kN @ x={x_minP:.2f}m", marker='D')
+    
+    ax2.axhline(P0, color='gray', linestyle=':', linewidth=1.5, alpha=0.6, label=f"Initial Force P₀={P0:.0f} kN")
+    
+    ax2.set_xlabel("Longitudinal Position x (m)", fontsize=11, fontweight='bold')
+    ax2.set_ylabel("Prestressing Force P (kN)", fontsize=11, fontweight='bold')
+    ax2.set_title("Force Distribution After Friction Losses", fontsize=13, fontweight='bold', pad=15)
+    ax2.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+    ax2.legend(loc="best", framealpha=0.9, fontsize=9)
+    ax2.set_xlim(-1, Ltot + 1)
+    
     st.pyplot(fig2, clear_figure=False)
 
 # -----------------------------
 # Summary
 # -----------------------------
-st.markdown("### Summary")
-s1, s2, s3, s4 = st.columns(4)
-s1.metric("Horizontal length L (m)", f"{Ltot:.3f}")
-s2.metric("True tendon length (m)", f"{Ltendon:.3f}")
-s3.metric("Total curvature θ (rad)", f"{theta_total:.5f}")
-s4.metric("Min P (selected) (kN)", f"{P_min:.1f}")
-st.caption(f"Minimum force location (selected mode): x = {x_minP:.2f} m")
+st.markdown("---")
+st.markdown("### 📈 Key Analysis Metrics")
 
-st.markdown("### Theoretical elongation (mm)")
+s1, s2, s3, s4 = st.columns(4)
+s1.metric(
+    "Horizontal Span Length", 
+    f"{Ltot:.3f} m",
+    help="Total horizontal projection of the tendon"
+)
+s2.metric(
+    "True Tendon Length", 
+    f"{Ltendon:.3f} m",
+    delta=f"+{(Ltendon - Ltot):.3f} m",
+    help="Actual length along the curved tendon path"
+)
+s3.metric(
+    "Total Angular Change", 
+    f"{theta_total:.5f} rad",
+    delta=f"{np.degrees(theta_total):.3f}°",
+    help="Cumulative absolute change in tendon angle"
+)
+s4.metric(
+    "Minimum Force (Selected)", 
+    f"{P_min:.1f} kN",
+    delta=f"-{P0 - P_min:.1f} kN",
+    delta_color="inverse",
+    help=f"Minimum force occurs at x = {x_minP:.2f} m"
+)
+
+st.markdown("### 📏 Theoretical Elongation Results")
 e1, e2, e3, e4 = st.columns(4)
-e1.metric("Δ Left-jack (mm)", f"{elong_left_mm:.3f}")
-e2.metric("Δ Right-jack (mm)", f"{elong_right_mm:.3f}")
-e3.metric("Δ Double-end (mm)", f"{elong_double_mm:.3f}")
-e4.metric("Δ Selected (mm)", f"{elong_selected_mm:.3f}")
+e1.metric(
+    "Left-End Jacking", 
+    f"{elong_left_mm:.3f} mm",
+    help="Theoretical elongation for left-end stressing only"
+)
+e2.metric(
+    "Right-End Jacking", 
+    f"{elong_right_mm:.3f} mm",
+    help="Theoretical elongation for right-end stressing only"
+)
+e3.metric(
+    "Double-End Jacking", 
+    f"{elong_double_mm:.3f} mm",
+    help="Theoretical elongation for simultaneous stressing"
+)
+e4.metric(
+    f"Selected Mode", 
+    f"{elong_selected_mm:.3f} mm",
+    help=f"Elongation for {jacking_mode}"
+)
 
 if end_info is not None:
-    st.info(f"End linear enforced: Le={end_info['Le']:.3f} m, mL={end_info['mL']:.6f}, mR={end_info['mR']:.6f}")
+    st.info(f"ℹ️ **End Zone Constraint Applied:** Le = {end_info['Le']:.3f} m | Left Slope = {end_info['mL']:.6f} | Right Slope = {end_info['mR']:.6f}")
 
 # -----------------------------
 # Control points & CSV
 # -----------------------------
-st.markdown("### Control points")
-st.dataframe(ctrl, use_container_width=True)
+st.markdown("---")
+st.markdown("### 🎯 Control Points Definition")
+st.caption("Geometric control points defining the smooth tendon profile with C¹ continuity")
 
-st.markdown("### Export points (CSV)")
-dx = np.diff(x)
-dz = np.diff(z)
-ds = np.sqrt(dx**2 + dz**2)
-
-out_df = pd.DataFrame({
-    "x_m": x,
-    "z_m (height from soffit)": z,
-    "theta_left_rad_cum": theta_left,
-    "P_single_left_kN": P_left,
-    "P_single_right_kN": P_right,
-    "P_double_env_kN": P_double,
-    "P_selected_kN": P_selected,
+ctrl_display = ctrl.copy()
+ctrl_display = ctrl_display.rename(columns={
+    'type': 'Point Type',
+    'x': 'Position x (m)',
+    'z': 'Height z (m)',
+    'slope': 'Tangent Slope',
+    'slope_mode': 'Slope Mode'
 })
-out_df["ds_m"] = np.concatenate([[0.0], ds])
-out_df["theta_total_rad"] = theta_total
-out_df["tendon_total_length_m"] = Ltendon
+st.dataframe(ctrl_display, use_container_width=True, hide_index=True)
 
-st.dataframe(out_df.head(25), use_container_width=True)
-st.download_button(
-    label="Download CSV of tendon points + forces",
-    data=out_df.to_csv(index=False).encode("utf-8"),
-    file_name="tendon_points_friction_2d_final.csv",
-    mime="text/csv"
-)
+st.markdown("### 💾 Export Analysis Data")
+
+col_exp1, col_exp2 = st.columns([2, 1])
+
+with col_exp1:
+    st.markdown("**Station-by-Station Results**")
+    dx = np.diff(x)
+    dz = np.diff(z)
+    ds = np.sqrt(dx**2 + dz**2)
+    
+    out_df = pd.DataFrame({
+        "Station_x_m": x,
+        "Elevation_z_m": z,
+        "Cumulative_Angle_rad": theta_left,
+        "Force_Left_kN": P_left,
+        "Force_Right_kN": P_right,
+        "Force_Double_kN": P_double,
+        "Force_Selected_kN": P_selected,
+    })
+    out_df["Segment_Length_m"] = np.concatenate([[0.0], ds])
+    out_df["Total_Curvature_rad"] = theta_total
+    out_df["Total_Tendon_Length_m"] = Ltendon
+    
+    st.caption("Preview (first 20 rows)")
+    st.dataframe(out_df.head(20), use_container_width=True, hide_index=True)
+
+with col_exp2:
+    st.markdown("**Download Options**")
+    st.download_button(
+        label="📥 Download Complete Dataset (CSV)",
+        data=out_df.to_csv(index=False).encode("utf-8"),
+        file_name=f"PT_Tendon_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+
 
 # -----------------------------
 # PDF report
 # -----------------------------
-st.markdown("### PDF report")
+st.markdown("---")
+st.markdown("### 📄 Professional PDF Report Generation")
 
-# store logo bytes if uploaded
-logo_bytes = None
-if logo_file is not None:
-    try:
-        logo_bytes = logo_file.read()
-    except Exception:
-        logo_bytes = None
+col_pdf1, col_pdf2 = st.columns([2, 1])
 
-if st.button("Generate PDF report"):
-    fig_geom_png = fig_to_png_bytes(fig1)
-    fig_force_png = fig_to_png_bytes(fig2)
+with col_pdf1:
+    st.info(
+        "📋 **Report Contents:**  \n"
+        "• Complete input parameters and configuration  \n"
+        "• Detailed analysis results and metrics  \n"
+        "• Geometric profile and force distribution charts  \n"
+        "• Control point definitions and support data  \n"
+        "• Professional formatting with header/footer"
+    )
 
-    params = {
-        "Number of spans": int(n_spans),
-        "Deck thickness t (m)": float(deck_t),
-        "Station step (m)": float(step),
-        "Min gap between control points (m)": float(min_gap),
-        "Force zero slope at LOW": bool(zero_slope_low),
-        "End linear enforced": bool(end_linear),
-        "Le (m)": float(Le),
-        "P0 (kN)": float(P0),
-        "mu (-)": float(mu),
-        "k (1/m)": float(k),
-        "Jacking mode": str(jacking_mode),
-        "Area A (mm^2)": float(A_mm2),
-        "E (MPa)": float(E_MPa),
-    }
+with col_pdf2:
+    # store logo bytes if uploaded
+    logo_bytes = None
+    if logo_file is not None:
+        try:
+            logo_bytes = logo_file.read()
+        except Exception:
+            logo_bytes = None
 
-    results = {
-        "Horizontal length L (m)": f"{Ltot:.3f}",
-        "True tendon length (m)": f"{Ltendon:.3f}",
-        "Total curvature theta (rad)": f"{theta_total:.5f}",
-        "Min P (selected) (kN)": f"{P_min:.1f}",
-        "Min P location x (m)": f"{x_minP:.2f}",
-        "Elongation Left-jack (mm)": f"{elong_left_mm:.3f}",
-        "Elongation Right-jack (mm)": f"{elong_right_mm:.3f}",
-        "Elongation Double-end (mm)": f"{elong_double_mm:.3f}",
-        "Elongation Selected (mm)": f"{elong_selected_mm:.3f}",
-    }
+if st.button("🔨 Generate Professional PDF Report", use_container_width=True, type="primary"):
+    with st.spinner("⏳ Generating comprehensive PDF report..."):
+        fig_geom_png = fig_to_png_bytes(fig1)
+        fig_force_png = fig_to_png_bytes(fig2)
+        
+        params = {
+            "Number of Spans": int(n_spans),
+            "Deck Thickness (m)": float(deck_t),
+            "Station Interval (m)": float(step),
+            "Minimum Control Point Spacing (m)": float(min_gap),
+            "Zero Slope at Low Points": bool(zero_slope_low),
+            "End Linear Zones Applied": bool(end_linear),
+            "End Zone Length Le (m)": float(Le),
+            "Initial Jacking Force P₀ (kN)": float(P0),
+            "Curvature Friction μ": float(mu),
+            "Wobble Coefficient k (1/m)": float(k),
+            "Jacking Configuration": str(jacking_mode),
+            "Tendon Area A (mm²)": float(A_mm2),
+            "Elastic Modulus E (MPa)": float(E_MPa),
+        }
+        
+        results = {
+            "Horizontal Span Length (m)": f"{Ltot:.3f}",
+            "True Tendon Length (m)": f"{Ltendon:.3f}",
+            "Total Angular Change (rad)": f"{theta_total:.5f}",
+            "Total Angular Change (degrees)": f"{np.degrees(theta_total):.3f}",
+            "Minimum Force - Selected (kN)": f"{P_min:.1f}",
+            "Minimum Force Location x (m)": f"{x_minP:.2f}",
+            "Elongation - Left Jack (mm)": f"{elong_left_mm:.3f}",
+            "Elongation - Right Jack (mm)": f"{elong_right_mm:.3f}",
+            "Elongation - Double-End (mm)": f"{elong_double_mm:.3f}",
+            "Elongation - Selected (mm)": f"{elong_selected_mm:.3f}",
+        }
+        
+        meta = {
+            "title": "Post-Tensioning Tendon Analysis Report",
+            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "project": project_name.strip() if project_name else "Unnamed Project",
+            "author": author_name.strip() if author_name else "Not Specified",
+            "disclaimer_short": "Engineering Analysis Tool - Verify All Results",
+            "disclaimer_long": (
+                "PROFESSIONAL DISCLAIMER: This report is generated by an engineering analysis tool "
+                "for preliminary design purposes. All results are based on user-defined inputs and "
+                "underlying analytical assumptions. The user bears full responsibility for verification "
+                "and validation of all results. This tool does not replace professional engineering judgment "
+                "or detailed design calculations. Always verify results against applicable design codes and standards."
+            ),
+        }
+        
+        payload = {
+            "meta": meta,
+            "params": params,
+            "span_df": span_df.reset_index(drop=True),
+            "support_df": support_df.reset_index(drop=True),
+            "pier_df": pier_df.reset_index(),
+            "ctrl_df": ctrl_display.reset_index(drop=True),
+            "results": results,
+            "fig_geom_png": fig_geom_png,
+            "fig_force_png": fig_force_png,
+        }
+        
+        try:
+            pdf_bytes = build_pdf_report(payload, logo_bytes=logo_bytes)
+            
+            st.download_button(
+                label="📄 Download PDF Report",
+                data=pdf_bytes,
+                file_name=f"PT_Tendon_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+            st.success("✅ PDF report generated successfully!")
+            
+        except Exception as e:
+            st.error(f"❌ PDF generation failed: {str(e)}")
+            st.warning("Please check your inputs and try again. If the problem persists, contact support.")
 
-    meta = {
-        "title": "2D PT Tendon Friction + Elongation Report",
-        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "project": project_name.strip() if project_name else "",
-        "author": author_name.strip() if author_name else "",
-        "disclaimer_short": "Engineering tool output—verify independently.",
-        "disclaimer_long": (
-            "DISCLAIMER: This report is generated by a preliminary calculation tool. "
-            "Results depend on user inputs and modelling assumptions. "
-            "It is the user's responsibility to verify and validate all results."
-        ),
-    }
 
-    payload = {
-        "meta": meta,
-        "params": params,
-        "span_df": span_df.reset_index(drop=True),
-        "support_df": support_df.reset_index(drop=True),
-        "pier_df": pier_df.reset_index().rename(columns={"support_index": "support_index"}),
-        "ctrl_df": ctrl.reset_index(drop=True),
-        "results": results,
-        "fig_geom_png": fig_geom_png,
-        "fig_force_png": fig_force_png,
-    }
+st.markdown("---")
 
-    try:
-        pdf_bytes = build_pdf_report(payload, logo_bytes=logo_bytes)
-        st.download_button(
-            label="Download PDF report",
-            data=pdf_bytes,
-            file_name="PT_Tendon_Friction_Elongation_Report.pdf",
-            mime="application/pdf"
-        )
-        st.success("PDF report generated successfully.")
-    except Exception as e:
-        st.error(f"PDF generation failed: {e}")
+# Footer with technical notes
+with st.expander("📚 Technical Notes & Methodology", expanded=False):
+    st.markdown("""
+    ### Analysis Methodology
+    
+    **Geometric Profile Definition:**
+    - Cubic Hermite spline interpolation (C¹ continuity) ensures smooth tendon profiles
+    - Control points defined at supports, low points, and inflection zones
+    - Optional enforcement of zero slopes at span low points for improved geometry
+    - Linear end zones can be specified to match anchorage details
+    
+    **Default Low Point Positioning:**
+    - Single span: α = 0.5 (midspan position)
+    - Multiple spans: First span α = 0.4, interior spans α = 0.5, last span α = 0.6
+    - User can override these values for specific design requirements
+    
+    **Friction Analysis:**
+    - Based on exponential friction model: P(x) = P₀ · exp(-(μθ + kx))
+    - μ: Curvature friction coefficient (typical range: 0.15-0.25 for post-tensioning)
+    - k: Wobble coefficient (typical range: 0.0010-0.0020 per meter)
+    - Double-end analysis uses envelope of max(P_left, P_right) with upper bound P₀
+    
+    **Elongation Calculation:**
+    - Theoretical elongation: Δ = ∫[P(x)dx] / (A·E)
+    - Numerical integration via trapezoidal rule
+    - Results represent elastic elongation under initial prestress conditions
+    
+    ### Important Considerations
+    
+    ⚠️ **Design Verification Required:**
+    - All results must be independently verified by a licensed professional engineer
+    - Code compliance checks for minimum cover, spacing, and other requirements
+    - Material properties should be confirmed with supplier specifications
+    - Local design codes and standards must be consulted
+    
+    ⚠️ **Limitations:**
+    - Analysis assumes linear elastic behavior
+    - Time-dependent losses (creep, shrinkage, relaxation) not included
+    - Anchorage seating losses require separate calculation
+    - Secondary effects and 3D geometry not modeled
+    
+    ### References
+    - AASHTO LRFD Bridge Design Specifications
+    - ACI 318: Building Code Requirements for Structural Concrete
+    - PTI: Post-Tensioning Manual (6th Edition)
+    """)
 
-st.markdown("### Notes")
-st.write(
-    "- For a single span, default LOW point is alpha=0.5 (midspan).\n"
-    "- For multiple spans: first alpha=0.4, interior alpha=0.5, last alpha=0.6 (i.e., 0.4L from right support).\n"
-    "- Double-end curve is envelope max(P_left, P_right) and clamped to never exceed P0.\n"
-    "- Elongation: Δ = ∫P(x)dx / (A·E) using trapezoidal integration.\n"
-)
+st.markdown("---")
+st.caption("Post-Tensioning Analysis System v2.0 | Professional Engineering Tool | © 2026")
 
